@@ -1,0 +1,74 @@
+{
+  "suite": "DFR v0.2 invalid-input conformance vectors",
+  "note": "Each input MUST be rejected by a conforming implementation. It MUST NOT produce a seal. The 'reason' explains which rule is violated.",
+  "vectors": [
+    {
+      "name": "required_field_null",
+      "description": "A required field (value) is null.",
+      "input": {
+        "label": "x",
+        "value": null,
+        "unit": null,
+        "time_period": "2026",
+        "context": "c",
+        "source_url": "https://example.org/1"
+      },
+      "expect": "reject",
+      "reason": "Required sealed fields (label, value, context, source_url) MUST be non-null strings."
+    },
+    {
+      "name": "required_field_missing",
+      "description": "A required field (context) is omitted entirely.",
+      "input": {
+        "label": "x",
+        "value": "v",
+        "unit": null,
+        "time_period": "2026",
+        "source_url": "https://example.org/2"
+      },
+      "expect": "reject",
+      "reason": "Required sealed fields MUST be present. An omitted required field is invalid."
+    },
+    {
+      "name": "nullable_field_omitted",
+      "description": "A nullable field (unit) is omitted rather than present as literal null.",
+      "input": {
+        "label": "x",
+        "value": "v",
+        "time_period": "2026",
+        "context": "c",
+        "source_url": "https://example.org/3"
+      },
+      "expect": "reject",
+      "reason": "Nullable fields (unit, time_period) MUST be present as literal null when they do not apply, never omitted. Omission would produce a shorter object and a different hash."
+    },
+    {
+      "name": "string_null_in_nullable",
+      "description": "The string \"null\" appears where a real null or a real value is required.",
+      "input": {
+        "label": "x",
+        "value": "v",
+        "unit": "null",
+        "time_period": "2026",
+        "context": "c",
+        "source_url": "https://example.org/4"
+      },
+      "expect": "reject",
+      "reason": "The string \"null\" MUST be rejected and never treated as a real null (the BigQuery/Apps Script ghost). Upstream must convert it to a real null before sealing."
+    },
+    {
+      "name": "string_null_in_required",
+      "description": "The string \"null\" as a required field value.",
+      "input": {
+        "label": "x",
+        "value": "null",
+        "unit": null,
+        "time_period": "2026",
+        "context": "c",
+        "source_url": "https://example.org/5"
+      },
+      "expect": "reject",
+      "reason": "The string \"null\" MUST be rejected wherever it appears, to avoid a real-null vs string-null ambiguity."
+    }
+  ]
+}
