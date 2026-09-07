@@ -1,147 +1,75 @@
-# Disclosure Ledger Verifier
+# Data Fidelity Register: Specification
 
-A reference implementation for independently verifying the integrity of a
-**disclosure ledger** — a structured, cryptographically sealed record of verified
-facts about an organisation, published in machine-readable form.
+This repository holds the open specification for the **Data Fidelity Register
+(DFR)**: a structured, machine-readable record of facts an organisation has
+publicly disclosed, where each fact is bound to its public source and
+cryptographically sealed so that the record can be verified by anyone, without
+trusting its publisher.
 
-This verifier lets anyone confirm that a published ledger has not been altered
-since publication, **without needing to trust the publisher**. It runs fully
-offline against the published files.
+- **Current version:** [`dfr-specification-v0.2.md`](dfr-specification-v0.2.md) (v0.2)
+- **Previous version:** [`dfr-specification-v0.1.md`](dfr-specification-v0.1.md)
+- **Licence:** CC BY 4.0
+- **Reference verifier:** [data-fidelity-register/verifier](https://github.com/data-fidelity-register/verifier) (MIT)
 
-## What it verifies
+A Data Fidelity Register attests **fidelity, not veracity**: it proves that a
+recorded value faithfully reflects the source cited beside it and has not changed
+since it was sealed. It does not attest that the source itself is true. This
+boundary is the core of the design and is stated throughout the specification.
 
-A disclosure ledger has two integrity layers, and this tool checks both:
+## What the specification defines
 
-1. **Row seals.** Every record carries an `apparat_seal`: a SHA-256 hash computed
-   over the canonical four-field set `{context, label, source_url, value}`. The
-   verifier recomputes each seal from the record's own contents and confirms it
-   matches the published seal. Any alteration to a sealed field — a changed value,
-   an edited quote, a swapped source — produces a different hash and is detected.
+The specification is self-contained; the summary below is orientation, not a
+substitute for reading it.
 
-2. **Release commitment.** All row seals are combined into a single Merkle root,
-   published as `release_commitment` in `release.json`. The verifier recomputes
-   the root from the row seals and confirms it matches. This binds the entire
-   ledger into one commitment.
+- **The entry model.** Each entry is a single sourced fact carrying six
+  substantive fields: `label`, `value`, `unit`, `time_period`, `context`
+  (a verbatim quote from the source) and `source_url`. Nullable fields (`unit`,
+  `time_period`) are always present as literal JSON `null`.
 
-A third layer — **anchoring** in a public transparency log (Sigstore Rekor) —
-provides third-party-verifiable evidence that the release existed at a specific
-time. Verifying the Rekor entry is an optional online step described below; the
-core integrity proof in this tool requires only the local files.
+- **The entry seal.** A SHA-256 hash computed over those six fields, and only
+  those six, in a deterministic canonical form (keys in fixed alphabetical order,
+  compact separators, raw UTF-8, literal `null` for absent nullable fields). Any
+  change to any sealed field produces a different seal. Management and lifecycle
+  fields that surround an entry are deliberately **not** sealed, so ordinary
+  release-to-release changes do not break entry seals.
 
-## Installation
+- **The release commitment.** All entry seals in a release are combined into a
+  single Merkle root (RFC 6962 construction over the seals, sorted), published as
+  `release_commitment` in `release.json`. This binds the whole release to one
+  value.
 
-The verifier is a single Python file with no third-party dependencies (standard
-library only). Python 3.8 or later.
+- **Anchoring.** The signed release commitment is submitted to a public
+  transparency log (Sigstore Rekor), giving third-party-verifiable evidence that
+  the release existed, independent of the publisher.
 
-```bash
-git clone https://github.com/<org>/disclosure-ledger-verifier.git
-cd disclosure-ledger-verifier
-```
+- **Verification procedure, threat model, lifecycle, key compromise, and
+  freshness limitations** are specified explicitly, including the honest limit
+  that a passing verification proves integrity, not currency.
 
-## Usage
+## Conformance vectors
 
-Verify a local ledger's row seals:
+The [`conformance/`](conformance/) directory contains test vectors validated
+byte-for-byte against production registers:
 
-```bash
-python3 verify_disclosure_ledger.py --ledger ledger.json
-```
+- `entry-vectors.json`: canonicalisation and entry-seal cases
+- `merkle-vectors.json`: release-commitment (Merkle root) cases
+- `invalid-vectors.json`: cases a conforming verifier must reject
 
-Verify seals **and** the release commitment:
+## Relationship to SCITT (RFC 9943)
 
-```bash
-python3 verify_disclosure_ledger.py --ledger ledger.json --release release.json
-```
+The DFR is **architecturally aligned with, but not conformant to**, the IETF
+SCITT architecture (RFC 9943). Both draw the same boundary, a signed, logged
+statement is proven *recorded*, not proven *true*, but the DFR uses a JSON
+representation and Rekor receipts rather than SCITT's COSE message and receipt
+model. The specification's appendix sets out the alignment in detail. The DFR is
+not a SCITT implementation and does not claim to be.
 
-Verify a ledger published at a URL:
+## Status and governance
 
-```bash
-python3 verify_disclosure_ledger.py --url https://disclosures.example.org/ledger.json
-```
-
-### Example
-
-The `examples/` directory contains a small real-data ledger and its release file:
-
-```bash
-python3 verify_disclosure_ledger.py \
-    --ledger examples/sample-ledger.json \
-    --release examples/sample-release.json
-```
-
-Expected output:
-
-```
-VERIFIED — 4/4 rows intact, release commitment matches.
-```
-
-### Exit codes
-
-| Code | Meaning |
-| :--- | :------ |
-| 0    | All checks passed |
-| 1    | One or more checks failed (tampering detected) |
-| 2    | Usage or input error |
-
-These make the verifier usable in automated checks (CI, monitoring).
-
-## How the seal is computed
-
-The seal is the SHA-256 of a canonical JSON serialisation of exactly four fields,
-in this order:
-
-```
-{"context":"…","label":"…","source_url":"…","value":"…"}
-```
-
-Canonicalisation rules:
-
-- **Keys in fixed order**: `context`, `label`, `source_url`, `value` — insertion
-  order, *not* alphabetical.
-- **No whitespace** between tokens (compact separators `,` and `:`).
-- **Non-ASCII characters preserved** (not `\u`-escaped); the string is encoded as
-  UTF-8 before hashing.
-
-This is byte-for-byte equivalent to JavaScript's `JSON.stringify` over the same
-object, which is how the reference generator produces seals. Any conforming
-implementation that reproduces these rules will compute identical seals.
-
-## How the Merkle root is computed
-
-```
-1. Collect all row seals (hex strings).
-2. Sort them lexicographically.
-3. Repeatedly combine adjacent pairs: concatenate the two hex strings and take
-   SHA-256 of the UTF-8 bytes of the concatenation. An odd element at the end of
-   a layer is paired with itself.
-4. Continue until one root remains — the release commitment.
-```
-
-## Optional: verifying the Sigstore Rekor anchor
-
-When a `release.json` includes an `anchor` block with `anchor_status: "anchored"`,
-the release commitment has been signed and submitted to
-[Sigstore Rekor](https://docs.sigstore.dev/logs/overview/), a public transparency
-log operated by the Linux Foundation. This provides independent, timestamped
-evidence that the release existed in its published form.
-
-To verify the anchor online, you can:
-
-1. Fetch the Rekor entry at the `rekor_entry_url` in `release.json`.
-2. Confirm the entry's `hash` matches the `release_commitment`.
-3. Confirm the signature verifies against the publisher's public key
-   (`public_key_url`), and that the key fingerprint matches.
-
-A scripted Rekor check is planned as an optional extension. The offline checks in
-this verifier already prove that the ledger contents are internally consistent and
-match their published commitment; the Rekor step adds independent proof of *when*
-that commitment was published.
-
-## Specification
-
-This verifier implements the integrity checks of the disclosure-ledger format.
-The full specification — data model, field semantics, canonicalisation, and
-conformance requirements — is published separately. (Link to be added.)
-
-## License
-
-This reference verifier is released under the MIT License. See `LICENSE`.
+This is an open **specification**, currently version 0.2, not a ratified
+standard. It has one reference implementation (the register-producing engine
+operated by Apparat / Der Apparat SASU) and one independent reference verifier.
+The format and the verifier are open so that anyone can read the format and check
+a register without depending on Apparat. Versions are published here as tagged
+releases; the version in a register's `release.json` (`spec_version`) states which
+version it conforms to.
