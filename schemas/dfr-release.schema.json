@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/data-fidelity-register/spec/schemas/dfr-release.schema.json",
+  "title": "DFR release (release.json)",
+  "description": "Release object: commitment over the entry seals, file hashes, signature and transparency-log anchor. build_provenance is recorded, not sealed.",
+  "type": "object",
+  "required": ["company_id", "release_id", "generated_at", "row_count", "release_commitment",
+               "previous_release_commitment", "anchor_status", "anchor", "spec_version",
+               "file_hashes", "release_digest", "signer"],
+  "$defs": {
+    "hex256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  },
+  "properties": {
+    "company_id":   { "type": "string", "minLength": 1 },
+    "release_id":   { "type": "string", "pattern": "^.+-[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9A-F]{4,8}$" },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "row_count":    { "type": "integer", "minimum": 0 },
+    "release_commitment": { "$ref": "#/$defs/hex256", "description": "RFC 6962 Merkle root over the entry seals sorted lexicographically." },
+    "previous_release_commitment": { "anyOf": [ { "$ref": "#/$defs/hex256" }, { "type": "null" } ], "description": "null for a register's first release." },
+    "anchor_status": { "type": "string" },
+    "anchor": {
+      "type": "object",
+      "required": ["method", "signature_b64", "key_id", "algorithm", "public_key_url",
+                   "rekor_uuid", "rekor_log_index", "rekor_integrated_time", "rekor_log_id", "rekor_entry_url"],
+      "properties": {
+        "method":                { "const": "sigstore-rekor" },
+        "signature_b64":         { "type": "string", "contentEncoding": "base64" },
+        "key_id":                { "type": "string", "pattern": "^sha256:[0-9a-f]+$" },
+        "algorithm":             { "type": "string" },
+        "public_key_url":        { "type": "string", "format": "uri" },
+        "rekor_uuid":            { "type": "string" },
+        "rekor_log_index":       { "type": "integer", "minimum": 0 },
+        "rekor_integrated_time": { "type": "integer", "minimum": 0 },
+        "rekor_log_id":          { "type": "string" },
+        "rekor_entry_url":       { "type": "string", "format": "uri" }
+      }
+    },
+    "spec_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "file_hashes": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": { "$ref": "#/$defs/hex256" },
+      "description": "Path relative to the register root, mapped to the lowercase hex SHA-256 of the served bytes."
+    },
+    "release_digest": { "$ref": "#/$defs/hex256", "description": "Digest over company_id, file_hashes (keys sorted), generated_at, previous_release_commitment, release_commitment, row_count." },
+    "signer": {
+      "type": "object",
+      "required": ["name", "key_id"],
+      "properties": { "name": { "type": "string" }, "key_id": { "type": "string" } }
+    },
+    "build_provenance": {
+      "type": "object",
+      "description": "Recorded, not sealed (RECOMMENDED).",
+      "properties": {
+        "extraction_model":   { "type": "string" },
+        "verification_model": { "type": "string" },
+        "generator_version":  { "type": "string" }
+      }
+    }
+  },
+  "additionalProperties": true
+}

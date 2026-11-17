@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/data-fidelity-register/spec/schemas/dfr-ledger.schema.json",
+  "title": "DFR ledger file (ledger.json)",
+  "description": "The served register: an array of entries. An empty array is a valid (zero-entry) release.",
+  "type": "array",
+  "items": { "$ref": "dfr-entry.schema.json" }
+}

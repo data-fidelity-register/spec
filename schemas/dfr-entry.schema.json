@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/data-fidelity-register/spec/schemas/dfr-entry.schema.json",
+  "title": "DFR entry",
+  "description": "One published entry of a Data Fidelity Register (ledger.json). The seal is SHA-256 over the canonical preimage of exactly six fields: context, label, source_url, time_period, unit, value (see the specification, Deterministic derivation). Other fields are published but not sealed.",
+  "type": "object",
+  "required": ["label", "value", "unit", "time_period", "context", "source_url", "source_name", "seal"],
+  "properties": {
+    "label":       { "type": "string", "minLength": 1, "description": "Sealed. What the value is, in the language of the source." },
+    "value":       { "type": "string", "minLength": 1, "description": "Sealed. Always a string, as stated by the source." },
+    "unit":        { "type": ["string", "null"], "not": { "const": "null" }, "description": "Sealed. Literal null when absent; the string \"null\" is invalid." },
+    "time_period": { "type": ["string", "null"], "not": { "const": "null" }, "description": "Sealed. The period the fact is about, where the source states one; literal null otherwise." },
+    "context":     { "type": "string", "minLength": 1, "description": "Sealed. The passage of the source the entry rests on." },
+    "source_url":  { "type": "string", "format": "uri", "pattern": "^https://", "description": "Sealed. The document the entry is faithful to." },
+    "source_name": { "type": "string", "minLength": 1, "description": "Not sealed. Display name of the source document." },
+    "seal":        { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "Lowercase hex SHA-256 of the canonical six-field preimage." },
+    "type": {
+      "description": "Not sealed. Publisher's classification of the entry. Optional, non-normative in v0.2 (v0.3 candidate); retired entries are never served.",
+      "enum": ["VERIFIED_FACT", "REGULATORY_IDENTITY", "ATTRIBUTED_CLAIM", "OPERATIONAL_POLICY"]
+    },
+    "subject": {
+      "description": "Not sealed. Whom the fact is about, as a relation to the publisher. Optional, non-normative in v0.2 (v0.3 candidate).",
+      "enum": ["SELF", "SUBSIDIARY", "PARENT", "COUNTERPARTY", "SECTOR", "THIRD_PARTY", "REGULATION"]
+    },
+    "subject_name": { "type": ["string", "null"], "description": "Not sealed. Display name of the subject when it is not the publisher. Optional, non-normative in v0.2 (v0.3 candidate)." },
+    "url":          { "type": "string", "format": "uri", "description": "Not sealed. Where this entry is presented on the register. Optional, non-normative in v0.2 (v0.3 candidate)." }
+  },
+  "additionalProperties": true
+}

@@ -55,6 +55,30 @@ byte-for-byte against production registers:
 - `merkle-vectors.json`: release-commitment (Merkle root) cases
 - `invalid-vectors.json`: cases a conforming verifier must reject
 
+## JSON Schemas
+
+The [`schemas/`](schemas/) directory contains JSON Schemas (Draft 2020-12) for
+the files a register publishes:
+
+- `dfr-entry.schema.json`: one entry of `ledger.json`
+- `dfr-ledger.schema.json`: `ledger.json`, an array of entries
+- `dfr-release.schema.json`: `release.json` (commitment, file hashes, signature, Rekor anchor)
+
+In an entry, the six sealed fields, `source_name` and `seal` are required. The
+fields `type`, `subject`, `subject_name` and `url` are **optional and
+non-normative in v0.2**: they are typed so that publishers who use them do so
+consistently, and they are candidates for v0.3. A v0.2 implementation does not
+need to produce or read them. Additional fields are allowed.
+
+The schemas check structure only; recomputing seals, the Merkle root and the
+signature is the verifier's job. To check a register folder containing
+`ledger.json` and `release.json`:
+
+```
+pip install jsonschema
+python3 schemas/validate.py path/to/register
+```
+
 ## Relationship to SCITT (RFC 9943)
 
 The DFR is **architecturally aligned with, but not conformant to**, the IETF
